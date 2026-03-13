@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: front
+  labels:
+    env: dev
+    managed-by: kubectl
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: back
+  labels:
+    env: dev
+    managed-by: kubectl

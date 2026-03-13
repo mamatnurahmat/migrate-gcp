@@ -1,0 +1,71 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dummy-back
+  namespace: back
+  labels:
+    app: dummy-back
+    tier: backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dummy-back
+  template:
+    metadata:
+      labels:
+        app: dummy-back
+        tier: backend
+    spec:
+      # Jadwalkan ke node pool "back"
+      nodeSelector:
+        role: back
+
+      # Tolerasi taint role=back:NoSchedule
+      tolerations:
+        - key: "role"
+          operator: "Equal"
+          value: "back"
+          effect: "NoSchedule"
+
+      containers:
+        - name: httpbin
+          # httpbin: API testing tool — menampilkan request info & JSON responses
+          image: kennethreitz/httpbin:latest
+          ports:
+            - containerPort: 80
+
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "200m"
+              memory: "256Mi"
+
+          readinessProbe:
+            httpGet:
+              path: /status/200
+              port: 80
+            initialDelaySeconds: 15
+            periodSeconds: 10
+
+      terminationGracePeriodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dummy-back-svc
+  namespace: back
+  labels:
+    app: dummy-back
+spec:
+  # ClusterIP: backend tidak perlu expose langsung ke internet
+  type: ClusterIP
+  selector:
+    app: dummy-back
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+      protocol: TCP

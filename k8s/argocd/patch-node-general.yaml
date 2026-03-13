@@ -1,0 +1,6 @@
+# Patch: jadwalkan semua pod ArgoCD ke node pool "general"
+# Node pool general tidak punya taint, cukup nodeSelector saja
+- op: add
+  path: /spec/template/spec/nodeSelector
+  value:
+    role: general
