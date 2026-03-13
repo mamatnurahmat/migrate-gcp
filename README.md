@@ -515,17 +515,112 @@ gcloud container clusters resize gke-main \
 
 ---
 
+## ⚡ Node Scaling — Hemat Biaya
+
+Scale node pool ke 0 saat tidak dipakai, aktifkan kembali saat diperlukan.
+
+### Scale DOWN — Matikan semua node (hemat maks)
+
+```bash
+make scale-down
+```
+
+Scale **general + front + back** ke 0 node sekaligus. Berguna saat mau istirahat / malam hari.
+
+> ⚠️ Pod yang berjalan (termasuk ArgoCD) akan **evicted**. Data persistent tidak hilang, tapi pod perlu di-reschedule saat scale-up.
+
+### Scale UP — Aktifkan kembali semua node
+
+```bash
+make scale-up
+```
+
+Scale semua pool kembali ke **1 node**. Tunggu ~2-3 menit sampai node `Ready`, lalu cek status:
+
+```bash
+make node-status   # Lihat jumlah node per pool
+make status        # Lihat semua pods
+```
+
+### Scale Pool Tertentu (Satu Pool)
+
+```bash
+# Scale down hanya front
+make scale-down-pool POOL=front
+
+# Scale down hanya back
+make scale-down-pool POOL=back
+
+# Aktifkan kembali front
+make scale-up-pool POOL=front
+
+# Aktifkan kembali back
+make scale-up-pool POOL=back
+```
+
+### Lihat Status Node Saat Ini
+
+```bash
+make node-status
+```
+
+Output contoh:
+```
+=== NODE STATUS ===
+      2 role=general
+      1 role=front
+      1 role=back
+
+NAME                                   STATUS   ROLES    AGE   EXTERNAL-IP
+gke-gke-main-general-...-9f8z          Ready    <none>   20m   34.101.61.158
+gke-gke-main-general-...-ml4q          Ready    <none>   18m   34.101.230.244
+gke-gke-main-front-...-dws0            Ready    <none>   20m   34.101.203.0
+gke-gke-main-back-...-dfb0             Ready    <none>   20m   34.101.147.50
+```
+
+### Estimasi Penghematan dari Scaling
+
+| Scenario | Biaya/hari | Biaya/bln |
+|---|---|---|
+| Semua UP 24 jam | ~$2.45 | ~$74 |
+| Scale DOWN 16 jam/hari (kerja 8 jam) | ~$0.82 | ~$25 |
+| Scale DOWN sepenuhnya (weekend) | $0 | hemat ~$16/minggu |
+
+---
+
 ## 📋 Quick Reference — Makefile
 
 ```bash
-make help       # Lihat semua perintah
-make init       # Terraform init
-make plan       # Preview infrastruktur
-make apply      # Buat infrastruktur
-make connect    # Setup kubectl
-make deploy     # Deploy dummy apps
-make status     # Status nodes & pods
-make clean      # Hapus dummy apps
-make destroy    # Hapus semua infra ⚠️
-make setup      # Full setup dari awal (init→apply→connect→deploy)
+# ─── Infrastructure ───────────────────────────────
+make help              # Lihat semua perintah
+make init              # Terraform init
+make plan              # Preview infrastruktur
+make apply             # Buat/update infrastruktur
+make destroy           # ⚠️  Hapus semua infra
+make output            # Lihat output Terraform
+
+# ─── Cluster ──────────────────────────────────────
+make connect           # Setup kubectl ke GKE
+make status            # Status nodes & pods
+make node-status       # Jumlah node per pool
+
+# ─── Node Scaling ─────────────────────────────────
+make scale-down                  # Matikan SEMUA node pool (ke 0)
+make scale-up                    # Aktifkan SEMUA node pool (ke 1)
+make scale-down-pool POOL=front  # Matikan satu pool tertentu
+make scale-up-pool   POOL=front  # Aktifkan satu pool tertentu
+
+# ─── Kubernetes Apps ──────────────────────────────
+make deploy            # Deploy dummy front & back
+make clean             # Hapus dummy apps
+make logs-front        # Logs dummy-front
+make logs-back         # Logs dummy-back
+
+# ─── ArgoCD ───────────────────────────────────────
+make argocd            # Deploy ArgoCD via Kustomize
+make argocd-pass       # Tampilkan initial admin password
+make argocd-url        # Tampilkan URL akses NodePort
+
+# ─── Full Setup ───────────────────────────────────
+make setup             # init → apply → connect → deploy (sekaligus)
 ```

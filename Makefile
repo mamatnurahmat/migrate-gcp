@@ -1,11 +1,16 @@
-PROJECT_ID ?= migrate-gcp-dev
-ZONE       ?= asia-southeast2-a
-REGION     ?= asia-southeast2
-CLUSTER    ?= gke-main
-TF_DIR     := terraform
-K8S_DIR    := k8s
+PROJECT_ID  ?= project-065701e7-213d-458b-a83
+ZONE        ?= asia-southeast2-a
+REGION      ?= asia-southeast2
+CLUSTER     ?= gke-main
+TF_DIR      := terraform
+K8S_DIR     := k8s
+# Node pools yang akan di-scale (pisahkan dengan spasi)
+NODE_POOLS  ?= general front back
 
-.PHONY: help init validate plan apply destroy connect deploy status clean logs
+.PHONY: help init validate plan apply destroy output connect \
+        deploy argocd argocd-pass argocd-url \
+        status logs-front logs-back clean \
+        scale-down scale-up node-status setup
 
 # ─── DEFAULT ──────────────────────────────────────────────────
 help: ## Tampilkan daftar perintah yang tersedia
@@ -72,6 +77,61 @@ logs-back: ## Logs dummy-back pod
 clean: ## Hapus dummy apps dari cluster (tidak hapus infra)
 	kubectl delete -f $(K8S_DIR)/dummy-front/ --ignore-not-found
 	kubectl delete -f $(K8S_DIR)/dummy-back/ --ignore-not-found
+
+# ─── NODE SCALING ─────────────────────────────────────────────
+scale-down: ## 💤 Scale semua node pool ke 0 (hemat biaya)
+	@echo "⏬ Scale DOWN semua node pool ke 0..."
+	@for pool in $(NODE_POOLS); do \
+	  echo "  → Scaling $$pool ke 0..."; \
+	  gcloud container clusters resize $(CLUSTER) \
+	    --node-pool=$$pool \
+	    --num-nodes=0 \
+	    --zone=$(ZONE) \
+	    --project=$(PROJECT_ID) \
+	    --quiet; \
+	done
+	@echo "\n✅ Semua node pool sudah di-scale ke 0"
+	@echo "💡 Jalankan 'make scale-up' untuk aktifkan kembali"
+
+scale-up: ## ▶️  Scale semua node pool kembali ke 1 node
+	@echo "⏫ Scale UP semua node pool ke 1..."
+	@for pool in $(NODE_POOLS); do \
+	  echo "  → Scaling $$pool ke 1..."; \
+	  gcloud container clusters resize $(CLUSTER) \
+	    --node-pool=$$pool \
+	    --num-nodes=1 \
+	    --zone=$(ZONE) \
+	    --project=$(PROJECT_ID) \
+	    --quiet; \
+	done
+	@echo "\n✅ Semua node pool sudah aktif kembali"
+	@echo "💡 Tunggu beberapa menit lalu jalankan 'make status'"
+
+scale-down-pool: ## 💤 Scale satu node pool ke 0 (gunakan: make scale-down-pool POOL=front)
+	@echo "⏬ Scaling node pool '$(POOL)' ke 0..."
+	gcloud container clusters resize $(CLUSTER) \
+	  --node-pool=$(POOL) \
+	  --num-nodes=0 \
+	  --zone=$(ZONE) \
+	  --project=$(PROJECT_ID) \
+	  --quiet
+	@echo "✅ Node pool '$(POOL)' di-scale ke 0"
+
+scale-up-pool: ## ▶️  Scale satu node pool ke 1 (gunakan: make scale-up-pool POOL=front)
+	@echo "⏫ Scaling node pool '$(POOL)' ke 1..."
+	gcloud container clusters resize $(CLUSTER) \
+	  --node-pool=$(POOL) \
+	  --num-nodes=1 \
+	  --zone=$(ZONE) \
+	  --project=$(PROJECT_ID) \
+	  --quiet
+	@echo "✅ Node pool '$(POOL)' aktif kembali"
+
+node-status: ## 📊 Lihat jumlah node per pool saat ini
+	@echo "\n=== NODE STATUS ==="
+	@kubectl get nodes --show-labels | grep -o 'role=[a-z]*' | sort | uniq -c
+	@echo ""
+	@kubectl get nodes -o wide
 
 # ─── FULL WORKFLOW ────────────────────────────────────────────
 setup: init apply connect deploy status ## 🚀 Full setup dari awal (init → apply → connect → deploy)
