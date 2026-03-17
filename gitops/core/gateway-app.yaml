@@ -1,0 +1,59 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: nginx-gateway-fabric
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: "https://registry.nginx.com/charts"
+    chart: nginx-gateway-fabric
+    targetRevision: 1.5.1
+    helm:
+      values: |
+        service:
+          # LoadBalancer: GKE akan provision Google Cloud L4 Network LB otomatis
+          # External IP permanen akan di-assign ke LB ini
+          type: LoadBalancer
+          annotations:
+            # Standard tier lebih murah untuk regional Jakarta
+            networking.gke.io/load-balancer-type: "External"
+          externalTrafficPolicy: Local  # preserve client IP
+
+        # Pin NGF controller ke node pool "general"
+        # node pool general tidak bertaint, cukup nodeSelector
+        nodeSelector:
+          role: general
+
+        # Resource request minimal untuk dev
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 256Mi
+
+        # Nama GatewayClass yang dibuat oleh chart ini
+        gatewayClass:
+          name: nginx
+
+        # NGF namespace = nginx-gateway
+        nginx:
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: nginx-gateway
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

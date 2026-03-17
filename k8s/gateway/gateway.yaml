@@ -1,0 +1,41 @@
+# =============================================================
+# Gateway Resource
+# Menerima traffic HTTP (80) dan HTTPS (443) dari internet.
+# GatewayClass "nginx" dibuat otomatis oleh NGINX Gateway Fabric Helm chart.
+# External IP berasal dari LoadBalancer service NGF (Google Cloud L4 LB).
+# =============================================================
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: main-gateway
+  namespace: nginx-gateway
+  annotations:
+    # cert-manager: auto-issue TLS cert untuk semua listener HTTPS
+    # Uncomment setelah ClusterIssuer siap dan domain sudah dikonfigurasi
+    # cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  gatewayClassName: nginx  # dibuat oleh NGINX Gateway Fabric Helm chart
+
+  listeners:
+    # ─── HTTP (port 80) ────────────────────────────────────────
+    - name: http
+      protocol: HTTP
+      port: 80
+      # Terima routes dari semua namespace
+      allowedRoutes:
+        namespaces:
+          from: All
+
+    # ─── HTTPS (port 443) ──────────────────────────────────────
+    # Uncomment setelah cert-manager + ClusterIssuer siap
+    # - name: https
+    #   protocol: HTTPS
+    #   port: 443
+    #   tls:
+    #     mode: Terminate
+    #     certificateRefs:
+    #       - name: main-tls-cert  # Secret dibuat oleh cert-manager
+    #         namespace: nginx-gateway
+    #   allowedRoutes:
+    #     namespaces:
+    #       from: All

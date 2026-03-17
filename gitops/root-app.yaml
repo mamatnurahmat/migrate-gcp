@@ -1,0 +1,30 @@
+# App of Apps — Root Application
+# Apply ini SATU KALI secara manual ke cluster.
+# Setelah itu semua core apps di gitops/core/ akan di-manage ArgoCD otomatis.
+#
+# kubectl apply -f gitops/root-app.yaml
+#
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: core-apps
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/mamatnurahmat/migrate-gcp.git
+    path: gitops/core
+    targetRevision: HEAD
+    directory:
+      recurse: false  # hanya file di gitops/core/, bukan subdirectory
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

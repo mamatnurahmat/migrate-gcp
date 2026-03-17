@@ -1,0 +1,45 @@
+# =============================================================
+# HTTPRoute — Backend
+# Route: traffic ke /api/*  →  dummy-back-svc (namespace: back)
+# Path /api/ di-strip sebelum diteruskan ke backend (rewrite)
+# =============================================================
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: route-back
+  namespace: back  # HTTPRoute di namespace yang sama dengan Service tujuan
+spec:
+  parentRefs:
+    - name: main-gateway
+      namespace: nginx-gateway
+      sectionName: http
+
+  # hostnames:
+  #   - "app.example.com"
+
+  rules:
+    # Rule 1: /api/* → dummy-back-svc, strip prefix /api
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /api
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: /  # strip /api prefix saat forward ke backend
+      backendRefs:
+        - name: dummy-back-svc
+          namespace: back
+          port: 80
+
+    # Rule 2: /health → backend health check (tanpa rewrite)
+    - matches:
+        - path:
+            type: Exact
+            value: /health
+      backendRefs:
+        - name: dummy-back-svc
+          namespace: back
+          port: 80

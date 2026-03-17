@@ -1,0 +1,31 @@
+# =============================================================
+# HTTPRoute — Frontend
+# Route: semua traffic ke /  →  dummy-front-svc (namespace: front)
+# =============================================================
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: route-front
+  namespace: front  # HTTPRoute di namespace yang sama dengan Service tujuan
+spec:
+  # Attach ke Gateway main-gateway di namespace nginx-gateway
+  parentRefs:
+    - name: main-gateway
+      namespace: nginx-gateway
+      sectionName: http  # listener name
+
+  # Hostname: ganti dengan domain kamu jika sudah ada
+  # Jika dikosongi, route berlaku untuk semua hostname (cocok untuk IP langsung)
+  # hostnames:
+  #   - "app.example.com"
+
+  rules:
+    # Rule 1: root path → dummy-front-svc
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: dummy-front-svc
+          namespace: front
+          port: 80

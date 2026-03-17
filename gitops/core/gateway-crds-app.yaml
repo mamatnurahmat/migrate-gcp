@@ -1,0 +1,29 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: gateway-api-crds
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/kubernetes-sigs/gateway-api
+    # v1.2.0: required untuk NGF 1.5.x dan Gateway API v1 stable
+    # experimental: dibutuhkan untuk BackendTLSPolicy, GRPCRoute, TCPRoute
+    path: config/crd/experimental
+    targetRevision: v1.2.0
+    directory:
+      recurse: true
+  destination:
+    server: https://kubernetes.default.svc
+    # CRDs bersifat cluster-wide, namespace hanya untuk placement ArgoCD
+    namespace: default
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true    # Wajib untuk CRDs yang besar
+      - Replace=false

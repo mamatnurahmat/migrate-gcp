@@ -3,6 +3,7 @@ ZONE        ?= asia-southeast2-a
 REGION      ?= asia-southeast2
 CLUSTER     ?= gke-main
 TF_DIR      := terraform
+VM_DIR      := vm
 K8S_DIR     := k8s
 # Node pools yang akan di-scale (pisahkan dengan spasi)
 NODE_POOLS  ?= general front back
@@ -10,31 +11,53 @@ NODE_POOLS  ?= general front back
 .PHONY: help init validate plan apply destroy output connect \
         deploy argocd argocd-pass argocd-url \
         status logs-front logs-back clean \
-        scale-down scale-up node-status setup
+        scale-down scale-up node-status setup \
+        vm-init vm-plan vm-apply vm-destroy vm-ssh vm-output
 
 # ─── DEFAULT ──────────────────────────────────────────────────
 help: ## Tampilkan daftar perintah yang tersedia
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
-	awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}'
+	awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
-# ─── TERRAFORM ────────────────────────────────────────────────
-init: ## Init Terraform (download providers)
+# ─── TERRAFORM (GKE) ──────────────────────────────────────────
+init: ## Init Terraform GKE (download providers)
 	cd $(TF_DIR) && terraform init
 
-validate: ## Validasi syntax Terraform
+validate: ## Validasi syntax Terraform GKE
 	cd $(TF_DIR) && terraform validate
 
-plan: ## Preview perubahan infrastruktur
+plan: ## Preview perubahan infrastruktur GKE
 	cd $(TF_DIR) && terraform plan -var-file=terraform.tfvars
 
-apply: ## Buat/update infrastruktur di GCP Jakarta
+apply: ## Buat/update infrastruktur GKE di GCP Jakarta
 	cd $(TF_DIR) && terraform apply -var-file=terraform.tfvars -auto-approve
 
-destroy: ## ⚠️  Hapus semua infrastruktur
+destroy: ## ⚠️  Hapus semua infrastruktur GKE
 	cd $(TF_DIR) && terraform destroy -var-file=terraform.tfvars -auto-approve
 
-output: ## Lihat output Terraform
+output: ## Lihat output Terraform GKE
 	cd $(TF_DIR) && terraform output
+
+# ─── TERRAFORM (VM) ───────────────────────────────────────────
+vm-init: ## Init Terraform VM
+	cd $(VM_DIR) && terraform init
+
+vm-plan: ## Preview VM yang akan dibuat
+	cd $(VM_DIR) && terraform plan -var-file=terraform.tfvars
+
+vm-apply: ## Buat Ubuntu VM di GCP
+	cd $(VM_DIR) && terraform apply -var-file=terraform.tfvars -auto-approve
+
+vm-destroy: ## ⚠️  Hapus VM
+	cd $(VM_DIR) && terraform destroy -var-file=terraform.tfvars -auto-approve
+
+vm-output: ## Lihat output VM (IP, SSH command)
+	cd $(VM_DIR) && terraform output
+
+vm-ssh: ## SSH langsung ke VM
+	@SSH_CMD=$$(cd $(VM_DIR) && terraform output -raw ssh_command 2>/dev/null); \
+	 echo "Connecting: $$SSH_CMD"; \
+	 eval $$SSH_CMD
 
 # ─── KUBECTL ──────────────────────────────────────────────────
 connect: ## Konfigurasi kubectl ke GKE cluster
